@@ -32,6 +32,7 @@ void processTimeSeries(TimeSeries* ts, int size) {
 }
 
 int main() {
+    int segment_sizes[3] = {10, 30, 60};
     // Allocating memory for a very large array
     TimeSeries* ts = malloc(50331648 * sizeof(TimeSeries)); // Corrected to sizeof(TimeSeries)
     if (ts == NULL) {
@@ -39,7 +40,7 @@ int main() {
         return 1; // Return an error code indicating failure
     }
 
-    readCSV("Name_Time_VideoInjection", "Name_Packet_VideoInjection", ts, 50331648); // Correct filename extension and variable name
+    readCSV("Name_Time_VideoInjection_tester", "Name_Packet_VideoInjection_tester", ts, 50331648); // Correct filename extension and variable name
     processTimeSeries(ts, 50331648);
 
     free(ts); // Free allocated memory
