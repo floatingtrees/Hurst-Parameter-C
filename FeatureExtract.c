@@ -55,7 +55,6 @@ float calculateHurst(TimeSeries* ts, int segment_size, int location, int array_s
     }
     
     int L = count / 4; // automatically casts to integer division
-    float* differences = malloc(4 * L * sizeof(float));
     float means[4];
     float stds[4];
     float cumulative_deviations[4];
@@ -71,13 +70,14 @@ float calculateHurst(TimeSeries* ts, int segment_size, int location, int array_s
         means[i] = means[i] / L;
     }
     int index = 0;
+    int mean_centered_value = 0;
     
     for (i = 0; i < 4; ++i) { // calculate ranges, std, cumsum
         int std_counter = 0;
         float cumsum = 0;
-        
-        float highest = ts[index].packet;
-        float lowest = ts[index].packet;
+
+        float highest = ts[index].packet - means[i];
+        float lowest = ts[index].packet - means[i];
 
         for (j = 0; j < L; ++j) {
             if (ts[index].packet < lowest) {
@@ -86,9 +86,9 @@ float calculateHurst(TimeSeries* ts, int segment_size, int location, int array_s
             else if (ts[index].packet > highest) {
                 highest = ts[index].packet;
             }
-            differences[index] = ts[index].packet - means[i];
-            cumsum +=ts[index].packet - means[i];
-            std_counter = std_counter + differences[index] * differences[index];
+            mean_centered_value = ts[index].packet - means[i];
+            cumsum += mean_centered_value;
+            std_counter = std_counter + mean_centered_value * mean_centered_value;
             ++index;
         }
         cumulative_deviations[i] = cumsum;
