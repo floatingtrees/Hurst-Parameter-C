@@ -2,22 +2,37 @@
 #include <stdlib.h>
 #include <math.h>
 
+typedef struct {
+    double packet;
+    double time;
+} TimeSeries;
+
 double calculateSubarrayMean(TimeSeries* ts, int startIndex, int endIndex) {
-    // Validate indices
-    if (startIndex < 0 || endIndex >= ts->size || startIndex > endIndex) {
-        fprintf(stderr, "Invalid indices\n");
-        return -1; // Error indicator
+    // values include [start, end)
+    if (startIndex >= endIndex) {
+        printf("Wrong Start and End Indexes");
+        exit(2);
     }
+    double mean = 0;
 
-    double sum = 0.0;
-    int count = 0;
-
-    // Sum the elements in the subarray
-    for (int i = startIndex; i <= endIndex; i++) {
-        sum += ts->data[i];
-        count++;
+    for (int i = startIndex; i < endIndex; ++i) {
+        mean += ts[i].packet;
     }
+    mean = mean / (endIndex - startIndex);
+    return mean;
+}
 
-    // Calculate and return the mean
-    return sum / count;
+
+int main() {
+     TimeSeries tsArray[5] = {
+        {1.0, 1.1},
+        {2.0, 2.2},
+        {3.0, 3.3},
+        {4.0, 4.4},
+        {5.0, 5.5}
+    };
+
+    double x = calculateSubarrayMean(tsArray, 1, 4);
+    printf("%lf", x);
+
 }

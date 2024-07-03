@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <omp.h>
+#include <stdbool.h>
 
 
 typedef struct {
@@ -13,6 +14,32 @@ typedef struct {
     double RS;
     double size;
 } DataPoint;
+
+double calculateSubarrayMean(const TimeSeries* ts, int startIndex, int endIndex) {
+    // values include [start, end)
+    if (startIndex >= endIndex) {
+        printf("Wrong Start and End Indexes");
+        exit(2);
+    }
+    double mean = 0;
+
+    for (int i = startIndex; i < endIndex; ++i) {
+        mean += ts[i].packet;
+    }
+    mean = mean / (endIndex - startIndex);
+    return mean;
+}
+
+
+bool checkFlawed(double value) {
+    if (isnan(value)) {
+        return true;
+    } else if (isinf(value)) {
+        return true;
+    } else {
+        return false;
+    }
+}
 
 // Function to read CSV file and store it in a TimeSeries array
 int readCSV(const char* file_time_name, const char* file_packet_name, TimeSeries* ts, int max_size) {
@@ -39,14 +66,7 @@ int readCSV(const char* file_time_name, const char* file_packet_name, TimeSeries
     return max_size;
 }
 
-// Main computation function (simplified version)
-void processTimeSeries(TimeSeries* ts, int size) {
-    for (int i = 0; i < size; i++) {
-        printf("Time: %lf, Packet: %lf\n", ts[i].time, ts[i].packet);
-    }
-}
-
-double calculateHurst(TimeSeries* ts, int segment_size, int location, int array_size) {
+double calculateHurst(const TimeSeries* ts, int segment_size, int location, int array_size) {
     
     int i = location;
     int endTime = segment_size + ts[location].time;
@@ -64,12 +84,11 @@ double calculateHurst(TimeSeries* ts, int segment_size, int location, int array_
     
     
     const int L = count / 4; // automatically casts to integer division
-
     if (L < 4) return -1; // deal with this edge case later
 
     DataPoint dataset[L - 3];
     for (int k = 4; k < L; ++k) {
-        int L2 = L / k;
+        int L2 = count / k;
         double means[k];
         double stds[k];
         double cumulative_deviations[k];
@@ -77,11 +96,7 @@ double calculateHurst(TimeSeries* ts, int segment_size, int location, int array_
         int j = 0;
 
         for (i = 0; i < k; ++i){ // calculate the mean 
-            means[i] = 0;
-            for (j = 0; j < L2; ++j) {
-                means[i] += ts[location + j].packet;
-            }
-            means[i] = means[i] / (double)L2;
+            means[i] = calculateSubarrayMean(ts, i * L2, (i+1) * L2);
         }
         int index = 0;
         double mean_centered_value;
@@ -118,23 +133,24 @@ double calculateHurst(TimeSeries* ts, int segment_size, int location, int array_
         double ratios = 0;
         int counter2 = 0;
         for (i = 0; i < k; ++i) {
-            if (stds[i] < 0.0001 || ranges[i] < 0.0001) {
-                printf("%lf, %lf, %lf\n", log10(ranges[i] / stds[i]), ranges[i], stds[i]);
+            if (stds[i] < 0.000001 || ranges[i] < 0.000001) {
                 continue;
-                
             }
-            ratios += log10(ranges[i] / stds[i]);
-            
+            ratios += ranges[i] / stds[i];
             counter2++;
         }
-        
+        printf("%lf", ratios / (double)counter2);
         // take the mean of ratios
-        dataset[k - 3].RS = ratios / (double)counter2;
-        dataset[k-3].size = log10((double)counter2);
-        //printf("\n%lf, %d, %lf", ratios, counter2, log10(counter2));
+        dataset[k - 3].RS = log10(ratios / (double)counter2);
+        dataset[k-3].size = log10((double)k);
+        if (checkFlawed(dataset[k - 3].RS) || checkFlawed(dataset[k-3].size)) {
+            printf("\n%lf, %lf,  %d, %d", dataset[k - 3].RS, dataset[k-3].size, k, counter2);
+            exit(1);
+        }
+
     }
 
-    int n = L - 4;
+    int n = L - 3;
     double sum_xy = 0;
     double sum_x = 0;
     double sum_y = 0;
