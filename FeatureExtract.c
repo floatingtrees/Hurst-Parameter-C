@@ -3,6 +3,7 @@
 #include <math.h>
 #include <omp.h>
 #include <stdbool.h>
+#include <assert.h>
 
 
 typedef struct {
@@ -49,10 +50,21 @@ int readCSV(const char* file_time_name, const char* file_packet_name, TimeSeries
         printf("File opening failed.\n");
         exit(1);
     }
-
+    
+    int time_counter = 0;
     for (int i = 0; i < max_size; i++) {
-        int counter1  = fscanf(file_time, "%lf", &ts[i].time);
-        int counter2 = fscanf(file_packet, "%lf", &ts[i].packet);
+        TimeSeries placeholder;
+        int counter1  = fscanf(file_time, "%lf", &placeholder.time);
+        int counter2 = fscanf(file_packet, "%lf", &placeholder.packet);
+        int result = placeholder.time/0.01;
+        if (result == time_counter) {
+            ts[time_counter].packet += placeholder.packet;
+        }
+        else{
+            time_counter = result;
+            ts[time_counter] = placeholder;
+        }
+
         if (counter1 != 1 || counter2 != 1) {
             printf("Terminating at %d\n", i);
             fclose(file_time);
@@ -60,6 +72,7 @@ int readCSV(const char* file_time_name, const char* file_packet_name, TimeSeries
             return i;
         }
     }
+    max_size = time_counter;
 
     fclose(file_time);
     fclose(file_packet);
@@ -68,7 +81,7 @@ int readCSV(const char* file_time_name, const char* file_packet_name, TimeSeries
 
 double calculateHurst(const TimeSeries* ts, int segment_size, int location, int array_size) {
     
-    int i = location;
+    int i = location; // location represents start location
     int endTime = segment_size + ts[location].time;
     int count = 0;
     
@@ -81,50 +94,51 @@ double calculateHurst(const TimeSeries* ts, int segment_size, int location, int 
         }
         ++i;
     }
-    
+    //printf("COUNT IS %d\n", count);
     
     const int L = count / 4; // automatically casts to integer division
     if (L < 4) return -1; // deal with this edge case later
 
-    DataPoint dataset[L - 3];
-    for (int k = 4; k < L; ++k) {
-        int L2 = count / k;
+    DataPoint dataset[L]; // first few points are filler
+
+    for (int k = 4; k < L; ++k) { // k = num_segments
+        const int L2 = count / k;
         double means[k];
         double stds[k];
-        double cumulative_deviations[k];
         double ranges[k];
         int j = 0;
-
+        // if k == 4, divide array into 4 segments
         for (i = 0; i < k; ++i){ // calculate the mean 
             means[i] = calculateSubarrayMean(ts, i * L2, (i+1) * L2);
         }
         int index = 0;
         double mean_centered_value;
         
-        for (i = 0; i < k; ++i) { // calculate ranges, std, cumsum
+        for (i = 0; i < k; ++i) { // calculate ranges, std
         // CHECK IF RANGE IS CALCULATED CORRECTLY
             double std_counter = 0;
-            double cumsum = 0;
 
             double highest = ts[index].packet - means[i];
             double lowest = ts[index].packet - means[i];
             double centered_value;
             for (j = 0; j < L2; ++j) {
                 centered_value = ts[index].packet - means[i];
-                if (centered_value< lowest) {
+                if (centered_value < lowest) {
                     lowest = centered_value;
                 }
                 else if (centered_value > highest) {
                     highest = centered_value;
                 }
                 mean_centered_value = centered_value;
-                cumsum += mean_centered_value;
-                std_counter +=  mean_centered_value * mean_centered_value;
+                std_counter = std_counter +  (mean_centered_value * mean_centered_value);
                 ++index;
+                // INDEX INCREMENTORS IS WORKING
+                //printf("%d, %d, %d, %d\n", index, j + i * L2 + 1, i, k);
+                assert(index == j + i * L2 + 1);
+                assert(index <= array_size);
                 //printf("%lf, %lf, %lf\n", lowest, highest, means[i]);
             }
             
-            cumulative_deviations[i] = cumsum;
             std_counter = std_counter / L2;
             stds[i] = sqrt(std_counter);
             ranges[i] = highest - lowest;
@@ -137,14 +151,15 @@ double calculateHurst(const TimeSeries* ts, int segment_size, int location, int 
                 continue;
             }
             ratios += ranges[i] / stds[i];
+            // std consistently lower than range
             counter2++;
         }
-        printf("%lf", ratios / (double)counter2);
+        //printf("%lf", ratios / (double)counter2);
         // take the mean of ratios
-        dataset[k - 3].RS = log10(ratios / (double)counter2);
-        dataset[k-3].size = log10((double)k);
-        if (checkFlawed(dataset[k - 3].RS) || checkFlawed(dataset[k-3].size)) {
-            printf("\n%lf, %lf,  %d, %d", dataset[k - 3].RS, dataset[k-3].size, k, counter2);
+        dataset[k].RS = log10(ratios / (double)counter2);
+        dataset[k].size = log10((double) L2); // It's either k or L2
+        if (checkFlawed(dataset[k].RS) || checkFlawed(dataset[k].size)) {
+            printf("\n%lf, %lf,  %d, %d", dataset[k].RS, dataset[k].size, k, counter2);
             exit(1);
         }
 
@@ -162,9 +177,15 @@ double calculateHurst(const TimeSeries* ts, int segment_size, int location, int 
         sum_x_squared += dataset[i].size * dataset[i].size;
     }
     double hurst = (n * sum_xy - (sum_x * sum_y)) / (n * sum_x_squared - (sum_x * sum_x));
-
-    // sum_y doesn't work
-    printf("\n%lf:%lf:%lf:%lf\n", sum_xy, sum_x, sum_y, sum_x_squared);
+    if (checkFlawed(hurst) | hurst > 1) {
+        printf("%lf, %lf, %lf, %lf, %d", sum_xy, sum_x, sum_y, sum_x_squared, n);
+        for (int v = 0; v < n; v = v + 1) {
+            printf("%lf, %lf\n", dataset[v].RS, dataset[v].size);
+        }
+        printf("Hyperparameters: %d, %d, %lf", n, count, hurst);
+        exit(1);
+    }
+    // sum_y doesn't work 
     return hurst;
 }
 
@@ -205,12 +226,11 @@ int main() {
             // Accessing the element at row i, column j
             // CHANGE THE PLUS ONE AFTER DEBUGGING
             // VERY VERY IMPORTANT
-            hursts[i * 3 + j] = calculateHurst(ts, segment_sizes[j+1], i, size);  // Assign a value to each element
+            hursts[i * 3 + j] = calculateHurst(ts, segment_sizes[j], i, size);  // Assign a value to each element
             
         }
         if (i % 1 == 0) {
-        printf("DONE CALCULATING %d out of %d, %d, %d \n", i, size, omp_get_thread_num(), hursts[i]);
-        return 1;
+        printf("DONE CALCULATING %d out of %d, %d, %lf \n", i, size, omp_get_thread_num(), hursts[i]);
         }
     }
     printf("HIHIHI");
