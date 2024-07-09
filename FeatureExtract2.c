@@ -245,6 +245,9 @@ double calculateHurst(const TimeSeries *ts, const double segment_size, const int
         double RS = ratios / nonzero_counter;
         dataset[k - 4].RS = log10(RS);
         dataset[k - 4].size = log10(k);
+        free(means);
+        free(stds);
+        free(ranges);
     }
     double hurst = calculateSlope(dataset, 0, L - 4);
     if (hurst <= 0.0001 || hurst > 1 || checkFlawed(hurst))
@@ -279,7 +282,7 @@ int main()
     }
     int i;
     int j;
-#pragma omp parallel for private(j) num_threads(4)
+#pragma omp parallel for private(j)
     for (i = 0; i < size; i++)
     {
         for (j = 0; j < 3; j++)
