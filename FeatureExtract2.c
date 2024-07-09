@@ -279,7 +279,7 @@ int main()
     }
     int i;
     int j;
-#pragma omp parallel for num_threads(4) private(j)
+#pragma omp parallel for private(j) num_threads(4)
     for (i = 0; i < size; i++)
     {
         for (j = 0; j < 3; j++)
