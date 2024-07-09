@@ -288,7 +288,7 @@ int main()
         }
         if (i % 1 == 0)
         {
-            printf("DONE CALCULATING %d out of %d, %d, %lf \n", i, size, omp_get_num_threads(), hursts[i * 3]);
+            printf("DONE CALCULATING %d out of %d, %d, %lf \n", i, size, omp_get_thread_num(), hursts[i * 3]);
         }
     }
     writeToCSV(hursts, size, "outputs.csv");
