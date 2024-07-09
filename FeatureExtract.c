@@ -79,6 +79,30 @@ int readCSV(const char* file_time_name, const char* file_packet_name, TimeSeries
     return max_size;
 }
 
+double calculateSlope(DataPoint* datapoints, int start, int array_size) {
+    double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    for (int i = start; i < array_size; i++) {
+        sumX += datapoints[i].size;
+        sumY += datapoints[i].RS;
+        sumXY += datapoints[i].size * datapoints[i].RS;
+        sumX2 += datapoints[i].size * datapoints[i].size;
+    }
+
+    double numerator = array_size * sumXY - sumX * sumY;
+    double denominator = array_size * sumX2 - sumX * sumX;
+    
+    if (denominator == 0) {
+        fprintf(stderr, "Error: Denominator is zero, slope is undefined.\n");
+        return 0; // Handling division by zero, could also exit the program
+    }
+    double hurst = numerator / denominator;
+    if (hurst < 0) {
+        printf("%lf, %lf, %lf, %lf", sumX, sumY, sumXY, sumX2);
+        exit(1);
+    }
+    return hurst;
+}
+
 double calculateHurst(const TimeSeries* ts, int segment_size, int location, int array_size) {
     
     int i = location; // location represents start location
@@ -147,7 +171,7 @@ double calculateHurst(const TimeSeries* ts, int segment_size, int location, int 
         double ratios = 0;
         int counter2 = 0;
         for (i = 0; i < k; ++i) {
-            if (stds[i] < 0.000001 || ranges[i] < 0.000001) {
+            if (stds[i] < 0.00000000001 || ranges[i] < 0.00000000001) {
                 continue;
             }
             ratios += ranges[i] / stds[i];
@@ -165,26 +189,7 @@ double calculateHurst(const TimeSeries* ts, int segment_size, int location, int 
 
     }
 
-    int n = L - 3;
-    double sum_xy = 0;
-    double sum_x = 0;
-    double sum_y = 0;
-    double sum_x_squared = 0;
-    for (i = 0; i < n; ++i) {
-        sum_xy += dataset[i].RS * dataset[i].size;
-        sum_x += dataset[i].size;
-        sum_y += dataset[i].RS;
-        sum_x_squared += dataset[i].size * dataset[i].size;
-    }
-    double hurst = (n * sum_xy - (sum_x * sum_y)) / (n * sum_x_squared - (sum_x * sum_x));
-    if (checkFlawed(hurst) | hurst > 1) {
-        printf("%lf, %lf, %lf, %lf, %d", sum_xy, sum_x, sum_y, sum_x_squared, n);
-        for (int v = 0; v < n; v = v + 1) {
-            printf("%lf, %lf\n", dataset[v].RS, dataset[v].size);
-        }
-        printf("Hyperparameters: %d, %d, %lf", n, count, hurst);
-        exit(1);
-    }
+    double hurst = calculateSlope(dataset, 4, L);
     // sum_y doesn't work 
     return hurst;
 }
