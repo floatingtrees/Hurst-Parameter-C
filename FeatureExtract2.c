@@ -136,7 +136,8 @@ int readCSV(const char *file_time_name, const char *file_packet_name, TimeSeries
         TimeSeries placeholder;
         int counter1 = fscanf(file_time, "%lf", &placeholder.time);
         int counter2 = fscanf(file_packet, "%lf", &placeholder.packet);
-        int result = placeholder.time / 0.1;
+
+        int result = placeholder.time / 0.01;
         if (counter1 != 1 || counter2 != 1)
         {
 
@@ -151,6 +152,7 @@ int readCSV(const char *file_time_name, const char *file_packet_name, TimeSeries
         }
         else
         {
+            placeholder.time = floor(placeholder.time * 100) / 100.0;
             time_counter = result;
             ts[time_counter] = placeholder;
         }
@@ -182,14 +184,24 @@ void writeToCSV(double *hursts, int size, const char *filename)
     fclose(file);
 }
 
-double calculateHurst(const TimeSeries *ts, int segment_size, int location, int array_size)
+void CSVDebug(TimeSeries *ts, int size, const char *filename)
+{
+    FILE *file = fopen(filename, "w");
+    for (int i = 0; i < size; i++)
+    {
+        fprintf(file, "%.2f, %.2f", ts[i].packet, ts[i].time); // Writing the double value with two decimal places
+        fprintf(file, "\n");
+    }
+}
+
+double calculateHurst(const TimeSeries *ts, double segment_size, int location, int array_size)
 {
     int i = location;
     int count = 0;
-    int endTime = segment_size + ts[location].time;
+    double endTime = segment_size + ts[location].time;
     while (i < array_size)
     {
-        if (ts[location + i].time > endTime)
+        if (ts[i].time > endTime)
         {
             break;
         }
@@ -234,7 +246,7 @@ double calculateHurst(const TimeSeries *ts, int segment_size, int location, int 
         dataset[k - 4].size = log10(k);
     }
     double hurst = calculateSlope(dataset, 0, L - 4);
-    if (hurst < 0 || hurst > 1 || checkFlawed(hurst))
+    if (hurst <= 0.0001 || hurst > 1 || checkFlawed(hurst))
     {
         printf("%lf", hurst);
         exit(1);
@@ -244,13 +256,13 @@ double calculateHurst(const TimeSeries *ts, int segment_size, int location, int 
 
 int main()
 {
-    int segment_sizes[3] = {10, 30, 60};
+    double segment_sizes[3] = {10, 30, 60};
     // Allocating memory for a very large array
     TimeSeries *ts = malloc(50331648 * sizeof(TimeSeries)); // Corrected to sizeof(TimeSeries)
     for (int i = 0; i < 50331648; ++i)
     {
         ts[i].packet = 0;
-        ts[i].time = 0;
+        ts[i].time = i * 0.01;
     }
     if (ts == NULL)
     {
@@ -271,11 +283,12 @@ int main()
     // #pragma omp parallel for num_threads(4)
     for (i = 0; i < size; i++)
     {
-        for (j = 0; j < 3; j++)
+        for (j = 3; j < 3; j++)
         {
             hursts[i * 3 + j] = calculateHurst(ts, segment_sizes[j], i, size); // Assign a value to each element
+            printf("%lf", hursts[i * 3 + j]);
         }
-        if (i % 100 == 0)
+        if (i % 1 == 0)
         {
             printf("DONE CALCULATING %d out of %d, %d, %lf \n", i, size, omp_get_num_threads(), hursts[i]);
         }
