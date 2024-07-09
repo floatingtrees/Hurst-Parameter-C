@@ -170,7 +170,7 @@ void writeToCSV(double *hursts, int size, const char *filename)
 
     for (int i = 0; i < size * 3; i++)
     {
-        fprintf(file, "%.2f", hursts[i]); // Writing the double value with two decimal places
+        fprintf(file, "%.5f", hursts[i]); // Writing the double value with two decimal places
         if (i % 3 == 2)
         { // After every third element, start a new line
             fprintf(file, "\n");
@@ -194,7 +194,7 @@ void CSVDebug(TimeSeries *ts, int size, const char *filename)
     }
 }
 
-double calculateHurst(const TimeSeries *ts, double segment_size, int location, int array_size)
+double calculateHurst(const TimeSeries *ts, const double segment_size, const int location, const int array_size)
 {
     int i = location;
     int count = 0;
@@ -225,9 +225,9 @@ double calculateHurst(const TimeSeries *ts, double segment_size, int location, i
 
         for (int j = 0; j < num_segments; ++j)
         {
-            means[j] = calculateSubarrayMean(ts, j * k, (j + 1) * k);
-            stds[j] = calculateStandardDeviation(ts, j * k, (j + 1) * k, means[j]);
-            ranges[j] = calculateRange(ts, j * k, (j + 1) * k);
+            means[j] = calculateSubarrayMean(ts, location + j * k, location + (j + 1) * k);
+            stds[j] = calculateStandardDeviation(ts, location + j * k, location + (j + 1) * k, means[j]);
+            ranges[j] = calculateRange(ts, location + j * k, location + (j + 1) * k);
         }
 
         double ratios = 0;
@@ -249,7 +249,6 @@ double calculateHurst(const TimeSeries *ts, double segment_size, int location, i
     if (hurst <= 0.0001 || hurst > 1 || checkFlawed(hurst))
     {
         printf("%lf", hurst);
-        exit(1);
     }
     return hurst;
 }
@@ -271,7 +270,7 @@ int main()
     }
 
     int size = readCSV("Name_Time_VideoInjection_tester", "Name_Packet_VideoInjection_tester", ts, 50331648); // Correct filename extension and variable name
-
+    size = 500;
     double *hursts = malloc(3 * size * sizeof(double));
     if (hursts == NULL)
     {
@@ -280,21 +279,16 @@ int main()
     }
     int i;
     int j;
-    // #pragma omp parallel for num_threads(4)
+#pragma omp parallel for num_threads(4) private(j)
     for (i = 0; i < size; i++)
     {
-        for (j = 3; j < 3; j++)
+        for (j = 0; j < 3; j++)
         {
             hursts[i * 3 + j] = calculateHurst(ts, segment_sizes[j], i, size); // Assign a value to each element
-            printf("%lf", hursts[i * 3 + j]);
         }
         if (i % 1 == 0)
         {
-            printf("DONE CALCULATING %d out of %d, %d, %lf \n", i, size, omp_get_num_threads(), hursts[i]);
-        }
-        if (i == 1000)
-        {
-            exit(1);
+            printf("DONE CALCULATING %d out of %d, %d, %lf \n", i, size, omp_get_num_threads(), hursts[i * 3]);
         }
     }
     writeToCSV(hursts, size, "outputs.csv");
