@@ -211,8 +211,9 @@ double calculateHurst(const TimeSeries *ts, const double segment_size, const int
         }
         ++i;
     }
+
     int L = count / 4;
-    if (L <= 5)
+    if (L <= 6)
         return -1;
     // k is the length of each individual segment
     DataPoint dataset[L - 4];
@@ -255,7 +256,7 @@ double calculateHurst(const TimeSeries *ts, const double segment_size, const int
 
 int main()
 {
-    double segment_sizes[3] = {10, 30, 60};
+    double segment_sizes[3] = {10.0, 30.0, 60.0};
     // Allocating memory for a very large array
     TimeSeries *ts = malloc(50331648 * sizeof(TimeSeries)); // Corrected to sizeof(TimeSeries)
     for (int i = 0; i < 50331648; ++i)
@@ -270,7 +271,6 @@ int main()
     }
 
     int size = readCSV("Name_Time_VideoInjection_tester", "Name_Packet_VideoInjection_tester", ts, 50331648); // Correct filename extension and variable name
-    size = 500;
     double *hursts = malloc(3 * size * sizeof(double));
     if (hursts == NULL)
     {
@@ -286,7 +286,7 @@ int main()
         {
             hursts[i * 3 + j] = calculateHurst(ts, segment_sizes[j], i, size); // Assign a value to each element
         }
-        if (i % 1 == 0)
+        if (i % 1000 == 0)
         {
             printf("DONE CALCULATING %d out of %d, %d, %lf \n", i, size, omp_get_thread_num(), hursts[i * 3]);
         }
