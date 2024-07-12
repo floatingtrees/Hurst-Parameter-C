@@ -7,7 +7,8 @@ gcc-14 -fopenmp FeatureExtract2.c -o FeatureExtract2
 on Mac or
 ```
 gcc -fopenmp FeatureExtract2.c -o FeatureExtract2 -lm
-``` on Linux. Then, run with
+```
+on Linux. Then, run with
 ```
 ./FeatureExtract2
 ```
