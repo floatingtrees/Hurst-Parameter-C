@@ -3,7 +3,8 @@
 Compile FeatureExtract2.c with 
 ```
 gcc-14 -fopenmp FeatureExtract2.c -o FeatureExtract2
-``` on Mac or
+```
+on Mac or
 ```
 gcc -fopenmp FeatureExtract2.c -o FeatureExtract2 -lm
 ``` on Linux. Then, run with
