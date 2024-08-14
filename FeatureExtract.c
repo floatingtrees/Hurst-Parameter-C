@@ -296,7 +296,7 @@ int main()
     if (hursts == NULL)
     {
         printf("Memory allocation failed.\n");
-        return 1; // Return an error code indicating failure
+        return 1;
     }
     int i;
     int j;
